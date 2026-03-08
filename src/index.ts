@@ -13,6 +13,7 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
 import authRoutes from './routes/auth.routes';
+import profileRoutes from './routes/profile.routes';
 
 // System HealthCheck Endpoint
 app.get('/health', async (req, res) => {
@@ -26,6 +27,7 @@ app.get('/health', async (req, res) => {
 
 // App Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/profiles', profileRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
