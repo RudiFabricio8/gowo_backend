@@ -32,7 +32,7 @@ enum AppointmentStatus {
 }
 
 model User {
-  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id            String   @id @default(uuid()) @db.Uuid
   email         String   @unique @db.VarChar(255)
   password_hash String?  @db.VarChar(255)
   role          UserRole
@@ -48,7 +48,7 @@ model User {
 }
 
 model Profile {
-  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id               String   @id @default(uuid()) @db.Uuid
   userId           String   @unique @map("user_id") @db.Uuid
   nombre           String   @db.VarChar(255)
   experienciaMeses Int      @default(0) @map("experiencia_meses")
@@ -68,7 +68,7 @@ model Profile {
 }
 
 model Skill {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id        String   @id @default(uuid()) @db.Uuid
   name      String   @unique @db.VarChar(100)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
@@ -90,7 +90,7 @@ model ProfileSkill {
 }
 
 model Request {
-  id          String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id          String        @id @default(uuid()) @db.Uuid
   empresaId   String        @map("empresa_id") @db.Uuid
   profileId   String        @map("profile_id") @db.Uuid
   estado      RequestStatus @default(pendiente)
@@ -105,7 +105,7 @@ model Request {
 }
 
 model Slot {
-  id          String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id          String     @id @default(uuid()) @db.Uuid
   profileId   String     @map("profile_id") @db.Uuid
   fechaInicio DateTime   @map("fecha_inicio") @db.Timestamptz
   fechaFin    DateTime?  @map("fecha_fin") @db.Timestamptz
@@ -121,7 +121,7 @@ model Slot {
 }
 
 model Appointment {
-  id        String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id        String            @id @default(uuid()) @db.Uuid
   slotId    String            @unique @map("slot_id") @db.Uuid
   empresaId String            @map("empresa_id") @db.Uuid
   estado    AppointmentStatus @default(programada)
@@ -136,7 +136,7 @@ model Appointment {
 }
 
 model Review {
-  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id            String   @id @default(uuid()) @db.Uuid
   appointmentId String?  @unique @map("appointment_id") @db.Uuid
   profileId     String   @map("profile_id") @db.Uuid
   empresaId     String   @map("empresa_id") @db.Uuid
