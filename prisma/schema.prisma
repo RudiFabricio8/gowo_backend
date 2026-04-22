@@ -54,6 +54,7 @@ model Profile {
   experienciaMeses Int      @default(0) @map("experiencia_meses")
   rating           Decimal  @default(0.0) @db.Decimal(3, 2)
   resenasCount     Int      @default(0) @map("resenas_count")
+  githubUsername   String?  @map("github_username") @db.VarChar(255)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 

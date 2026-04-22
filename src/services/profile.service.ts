@@ -3,108 +3,69 @@ import { CreateProfileInput } from '../schemas/profile.schema';
 
 export class ProfileService {
   static async upsertProfile(userId: string, data: CreateProfileInput) {
-    const { nombre, experiencia_meses, skills } = data;
+    const { nombre, experiencia_meses, skills, github_username } = data;
 
-    // First: create or update the base profile
     const profile = await prisma.profile.upsert({
       where: { userId },
       update: {
         nombre,
         experienciaMeses: experiencia_meses ?? 0,
+        githubUsername: github_username ?? null,
       },
       create: {
         userId,
         nombre,
         experienciaMeses: experiencia_meses ?? 0,
+        githubUsername: github_username ?? null,
       },
     });
 
-    // Handle skills if provided
     if (skills && skills.length > 0) {
-      // Clean previous relationships for this profile (optional, depends on requirement, we assume a full replacement of skills here)
-      await prisma.profileSkill.deleteMany({
-        where: { profileId: profile.id },
-      });
-
-      // Ensure all skills exist in the skills table
+      await prisma.profileSkill.deleteMany({ where: { profileId: profile.id } });
       for (const skillName of skills) {
-        let skill = await prisma.skill.findUnique({
-          where: { name: skillName },
-        });
-
+        let skill = await prisma.skill.findUnique({ where: { name: skillName } });
         if (!skill) {
-          skill = await prisma.skill.create({
-            data: { name: skillName },
-          });
+          skill = await prisma.skill.create({ data: { name: skillName } });
         }
-
-        // Create relation in the pivot table
         await prisma.profileSkill.create({
-          data: {
-            profileId: profile.id,
-            skillId: skill.id,
-          },
+          data: { profileId: profile.id, skillId: skill.id },
         });
       }
     }
 
-    // Return profile with its skills
     return prisma.profile.findUnique({
       where: { id: profile.id },
       include: {
-        profileSkills: {
-          include: {
-            skill: true,
-          },
-        },
+        profileSkills: { include: { skill: true } },
       },
     });
   }
 
   static async getProfiles(page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
-
     const [profiles, total] = await Promise.all([
       prisma.profile.findMany({
         skip,
         take: limit,
         include: {
-          user: {
-            select: { role: true, email: true }
-          },
-          profileSkills: {
-            include: { skill: true }
-          }
+          user: { select: { role: true, email: true } },
+          profileSkills: { include: { skill: true } },
         },
       }),
       prisma.profile.count(),
     ]);
-
-    return {
-      profiles,
-      total,
-      page,
-      limit,
-    };
+    return { profiles, total, page, limit };
   }
 
   static async getProfileById(profileId: string) {
     const profile = await prisma.profile.findUnique({
       where: { id: profileId },
       include: {
-        user: {
-          select: { role: true, email: true }
-        },
-        profileSkills: {
-          include: { skill: true }
-        }
+        user: { select: { role: true, email: true } },
+        profileSkills: { include: { skill: true } },
       },
     });
-
-    if (!profile) {
-      throw new Error('Perfil no encontrado');
-    }
-
+    if (!profile) throw new Error('Perfil no encontrado');
     return profile;
   }
 }
