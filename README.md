@@ -1,54 +1,74 @@
+# GoWo — Backend API
 
-***
-## 2) `gowo-backend/README.md`
+Capa de servicio del proyecto GoWo. API REST construida con **Node.js**, **Express 5**, **TypeScript**, **Prisma ORM** y **Zod**.
 
-```md
-# GoWo - Backend / API
+## Stack
 
-Este repositorio contiene la **capa de Servicio (Backend/API)** del proyecto GoWo, construida con **Node.js**, **TypeScript** y **Zod**, siguiendo una arquitectura **SOA**.
-
-## Tecnologías principales
-
-- Node.js
-- Express (o framework HTTP equivalente)
+- Node.js + Express 5
 - TypeScript
+- Prisma ORM (PostgreSQL)
 - Zod (validación de esquemas)
-- REST API con JSON
+- JWT (access 15m + refresh 7d)
+- bcrypt (hash de contraseñas)
+- helmet (headers de seguridad HTTP)
+
+## Variables de entorno
+
+Copia `.env.example` a `.env` y ajusta los valores:
+
+```env
+DATABASE_URL="postgresql://user:pass@localhost:5433/gowo_db?schema=public"
+JWT_SECRET="secret_muy_largo_y_seguro"
+JWT_REFRESH_SECRET="refresh_secret_muy_largo_y_seguro"
+PORT=3000
+CORS_ORIGIN="http://localhost:3001"
+GITHUB_TOKEN=""
+```
+
+## Instalación y ejecución
+
+```bash
+npm install
+npm run dev
+```
+
+## Endpoints
+
+### Auth — `/api/v1/auth`
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/register` | Registro de usuario |
+| POST | `/login` | Login, retorna access + refresh token |
+| POST | `/refresh` | Renueva el access token |
+
+### Perfiles — `/api/v1/profiles`
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/` | No | Listar perfiles (paginado) |
+| GET | `/:id` | No | Obtener perfil por ID |
+| POST | `/` | Sí | Crear o actualizar perfil propio |
+
+### Solicitudes — `/api/v1/requests`
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| POST | `/` | Sí (empresa) | Enviar solicitud a un perfil |
+| GET | `/` | Sí | Ver mis solicitudes (enviadas o recibidas) |
+| PATCH | `/:id` | Sí (egresado) | Aceptar o rechazar una solicitud |
+
+### GitHub — `/api/v1/github`
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/:username/repos` | Repositorios públicos del usuario en GitHub |
 
 ## Arquitectura
 
-- API versión: **v1** (`/api/v1/...`).
-- Puerto de desarrollo por defecto: **3001**.
-- Se comunica con:
-  - Frontend GoWo (a través de HTTP/HTTPS + JSON).
-  - Base de datos GoWo (PostgreSQL) mediante variables de entorno (ej. `DATABASE_URL`).
-
-Este backend **no** renderiza vistas, solo expone endpoints.
-
-## Endpoints principales (propuestos)
-
-- `POST /api/v1/auth/login`
-- `GET /api/v1/workflows`
-- `POST /api/v1/workflows`
-- `PUT /api/v1/workflows/:id`
-- `DELETE /api/v1/workflows/:id`
-
-## Validación con Zod
-
-- Todos los cuerpos de petición (`req.body`) y parámetros se validarán con **Zod**.
-- El contrato de la API se documentará en el proyecto y se alineará con el frontend.
-
-## Scripts iniciales (propuestos)
-
-```bash
-# Instalar dependencias
-npm install
-
-# Ejecutar en desarrollo (ts-node / nodemon)
-npm run dev
-
-# Compilar a JS
-npm run build
-
-# Ejecutar build compilado
-npm start
+```
+src/
+├── controllers/   # Manejo de request/response HTTP
+├── services/      # Lógica de negocio
+├── routes/        # Definición de rutas
+├── middlewares/   # requireAuth, validateResource
+├── schemas/       # Validaciones Zod
+├── utils/         # jwt.ts, hash.ts
+└── config/        # prisma.ts
+```
