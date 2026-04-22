@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  egresado
+  empresa
+}
+
+enum RequestStatus {
+  pendiente
+  aceptada
+  rechazada
+}
+
+enum SlotStatus {
+  disponible
+  reservado
+  completado
+  cancelado
+}
+
+enum AppointmentStatus {
+  programada
+  completada
+  cancelada
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  email         String   @unique @db.VarChar(255)
+  password_hash String?  @db.VarChar(255)
+  role          UserRole
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  profile      Profile?
+  requests     Request[]
+  appointments Appointment[]
+  reviews      Review[]
+
+  @@map("users")
+}
+
+model Profile {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @unique @map("user_id") @db.Uuid
+  nombre           String   @db.VarChar(255)
+  experienciaMeses Int      @default(0) @map("experiencia_meses")
+  rating           Decimal  @default(0.0) @db.Decimal(3, 2)
+  resenasCount     Int      @default(0) @map("resenas_count")
+  githubUsername   String?  @map("github_username") @db.VarChar(255)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileSkills ProfileSkill[]
+  requests      Request[]
+  slots         Slot[]
+  reviews       Review[]
+
+  @@map("profiles")
+}
+
+model Skill {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  profileSkills ProfileSkill[]
+
+  @@map("skills")
+}
+
+model ProfileSkill {
+  profileId String   @map("profile_id") @db.Uuid
+  skillId   String   @map("skill_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, skillId])
+  @@map("profile_skills")
+}
+
+model Request {
+  id          String        @id @default(uuid()) @db.Uuid
+  empresaId   String        @map("empresa_id") @db.Uuid
+  profileId   String        @map("profile_id") @db.Uuid
+  estado      RequestStatus @default(pendiente)
+  descripcion String
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  empresa User    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("requests")
+}
+
+model Slot {
+  id          String     @id @default(uuid()) @db.Uuid
+  profileId   String     @map("profile_id") @db.Uuid
+  fechaInicio DateTime   @map("fecha_inicio") @db.Timestamptz
+  fechaFin    DateTime?  @map("fecha_fin") @db.Timestamptz
+  estado      SlotStatus @default(disponible)
+  precio      Decimal    @db.Decimal(10, 2)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  profile     Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  appointment Appointment?
+
+  @@map("slots")
+}
+
+model Appointment {
+  id        String            @id @default(uuid()) @db.Uuid
+  slotId    String            @unique @map("slot_id") @db.Uuid
+  empresaId String            @map("empresa_id") @db.Uuid
+  estado    AppointmentStatus @default(programada)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  slot    Slot    @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  empresa User    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  review  Review?
+
+  @@map("appointments")
+}
+
+model Review {
+  id            String   @id @default(uuid()) @db.Uuid
+  appointmentId String?  @unique @map("appointment_id") @db.Uuid
+  profileId     String   @map("profile_id") @db.Uuid
+  empresaId     String   @map("empresa_id") @db.Uuid
+  estrellas     Int
+  comentario    String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  profile     Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  empresa     User         @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}

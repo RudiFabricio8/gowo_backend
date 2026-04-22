@@ -1,54 +1,74 @@
+# GoWo — Backend API
 
-***
-## 2) `gowo-backend/README.md`
+Este es el motor de servicios de GoWo. Una API REST diseñada para conectar empresas con egresados, gestionando perfiles dinámicos e integración con la API de GitHub.
 
-```md
-# GoWo - Backend / API
+# Tech Stack
+* **Runtime y Lenguaje:** Node.js 24 + TypeScript 5
+* **Framework:** Express 5
+* **Base de Datos:** PostgreSQL + Prisma ORM
+* **Validación:** Zod (contratos de datos seguros)
+* **Seguridad:** JWT (Access/Refresh tokens), bcrypt y Helmet para headers.
 
-Este repositorio contiene la **capa de Servicio (Backend/API)** del proyecto GoWo, construida con **Node.js**, **TypeScript** y **Zod**, siguiendo una arquitectura **SOA**.
+## Arquitectura y Flujo
 
-## Tecnologías principales
+El proyecto está organizado bajo una arquitectura de capas (SOA) para desacoplar la lógica de negocio del transporte de datos:
 
-- Node.js
-- Express (o framework HTTP equivalente)
-- TypeScript
-- Zod (validación de esquemas)
-- REST API con JSON
+`Routes → Middlewares → Controllers → Services → Prisma`
 
-## Arquitectura
+* **Services:** Contienen la lógica de negocio pura e integraciones externas.
+* **Schemas:** Definiciones de Zod para validación de contratos (body, params, query).
+* **Utils:** Helpers para criptografía y manejo de tokens.
+* **Config:** Singletons de base de datos y variables globales.
 
-- API versión: **v1** (`/api/v1/...`).
-- Puerto de desarrollo por defecto: **3001**.
-- Se comunica con:
-  - Frontend GoWo (a través de HTTP/HTTPS + JSON).
-  - Base de datos GoWo (PostgreSQL) mediante variables de entorno (ej. `DATABASE_URL`).
+## Configuración Local
 
-Este backend **no** renderiza vistas, solo expone endpoints.
+**Requisitos:** Node 18+ y acceso a una instancia de PostgreSQL (disponible en el repo gowo_infra vía Docker).
 
-## Endpoints principales (propuestos)
+1. **Instalar dependencias:**
+   ```bash
+   npm install
 
-- `POST /api/v1/auth/login`
-- `GET /api/v1/workflows`
-- `POST /api/v1/workflows`
-- `PUT /api/v1/workflows/:id`
-- `DELETE /api/v1/workflows/:id`
+2. **Variables de entorno:** Configurar archivo .env basado en .env.example.
 
-## Validación con Zod
+3. **Persistencia:**
+   npx prisma generate
+   npx prisma db push
 
-- Todos los cuerpos de petición (`req.body`) y parámetros se validarán con **Zod**.
-- El contrato de la API se documentará en el proyecto y se alineará con el frontend.
+4. **Desarrollo:**
+   npm run dev
 
-## Scripts iniciales (propuestos)
+El servidor estará disponible en http://localhost:3000.
 
-```bash
-# Instalar dependencias
-npm install
+Endpoints Principales
+Auth (/api/v1/auth)
+POST /register: Registro de egresado o empresa.
 
-# Ejecutar en desarrollo (ts-node / nodemon)
-npm run dev
+POST /login: Retorna access_token y refresh_token.
 
-# Compilar a JS
-npm run build
+POST /refresh: Rotación de tokens de sesión.
 
-# Ejecutar build compilado
-npm start
+Perfiles y GitHub (/api/v1/profiles | /api/v1/github)
+GET /profiles: Listado con soporte para paginación y filtros.
+
+POST /profiles: Upsert del perfil del usuario autenticado.
+
+GET /github/:username/repos: Proxy hacia la API de GitHub (mantiene el token de servidor privado).
+
+Solicitudes (/api/v1/requests)
+Gestión de flujo de contacto entre empresas y egresados (pendiente, aceptada, rechazada).
+
+Seguridad
+Sesiones: Implementación de Access Tokens (15 min) y Refresh Tokens (7 días).
+
+Validación: Validación estricta de inputs con Zod para prevenir datos malformados.
+
+Headers: Integración de Helmet para mitigar ataques comunes de seguridad web.
+
+CORS: Restringido por variables de entorno según el entorno de ejecución.
+
+Roadmap
+[ ] Cobertura de tests unitarios y de integración.
+
+[ ] Implementación de Redis para caché de peticiones a GitHub.
+
+[ ] Sistema de notificaciones por email.
