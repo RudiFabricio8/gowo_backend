@@ -1,247 +1,74 @@
 # GoWo — Backend API
 
-> Capa de servicio del proyecto GoWo. API REST construida con Node.js, Express 5, TypeScript, Prisma ORM y Zod. Implementa autenticación JWT, lógica de negocio real e integración con la API externa de GitHub.
+Este es el motor de servicios de GoWo. Una API REST diseñada para conectar empresas con egresados, gestionando perfiles dinámicos e integración con la API de GitHub.
 
----
+# Tech Stack
+* **Runtime y Lenguaje:** Node.js 24 + TypeScript 5
+* **Framework:** Express 5
+* **Base de Datos:** PostgreSQL + Prisma ORM
+* **Validación:** Zod (contratos de datos seguros)
+* **Seguridad:** JWT (Access/Refresh tokens), bcrypt y Helmet para headers.
 
-## Índice
+## Arquitectura y Flujo
 
-- [Stack tecnológico](#stack-tecnológico)
-- [Arquitectura](#arquitectura)
-- [Instalación local](#instalación-local)
-- [Variables de entorno](#variables-de-entorno)
-- [Endpoints](#endpoints)
-- [Pruebas de API](#pruebas-de-api)
-- [Seguridad](#seguridad)
-- [Decisiones técnicas](#decisiones-técnicas)
+El proyecto está organizado bajo una arquitectura de capas (SOA) para desacoplar la lógica de negocio del transporte de datos:
 
----
+`Routes → Middlewares → Controllers → Services → Prisma`
 
-## Stack tecnológico
+* **Services:** Contienen la lógica de negocio pura e integraciones externas.
+* **Schemas:** Definiciones de Zod para validación de contratos (body, params, query).
+* **Utils:** Helpers para criptografía y manejo de tokens.
+* **Config:** Singletons de base de datos y variables globales.
 
-| Tecnología | Versión | Rol |
-|---|---|---|
-| Node.js | 24.x | Runtime |
-| Express | 5.x | Framework HTTP |
-| TypeScript | 5.x | Tipado estático |
-| Prisma ORM | 6.x | Acceso a base de datos |
-| Zod | 4.x | Validación de esquemas |
-| bcrypt | 6.x | Hash de contraseñas |
-| jsonwebtoken | 9.x | Autenticación JWT |
-| helmet | 8.x | Headers de seguridad HTTP |
+## Configuración Local
 
----
+**Requisitos:** Node 18+ y acceso a una instancia de PostgreSQL (disponible en el repo gowo_infra vía Docker).
 
-## Arquitectura
+1. **Instalar dependencias:**
+   ```bash
+   npm install
 
-El backend sigue una arquitectura **SOA en capas**:
+2. **Variables de entorno:** Configurar archivo .env basado en .env.example.
 
-```
-src/
-├── routes/        → Define los endpoints y aplica middlewares
-├── controllers/   → Maneja request/response HTTP, delega a servicios
-├── services/      → Lógica de negocio pura (sin HTTP)
-├── schemas/       → Validaciones Zod (contratos de entrada)
-├── middlewares/   → requireAuth, validateResource
-├── utils/         → jwt.ts (sign/verify), hash.ts (bcrypt)
-└── config/        → prisma.ts (cliente singleton)
-```
+3. **Persistencia:**
+   npx prisma generate
+   npx prisma db push
 
-Flujo de una petición:
-```
-Request → Route → Middleware (auth + validate) → Controller → Service → Prisma → PostgreSQL
-```
+4. **Desarrollo:**
+   npm run dev
 
----
+El servidor estará disponible en http://localhost:3000.
 
-## Instalación local
+Endpoints Principales
+Auth (/api/v1/auth)
+POST /register: Registro de egresado o empresa.
 
-**Prerequisitos:** Node.js 18+, Docker (para la base de datos)
+POST /login: Retorna access_token y refresh_token.
 
-```bash
-# 1. Levantar la base de datos (desde el repo gowo_infra)
-cd ../gowo_infra && docker compose up -d
+POST /refresh: Rotación de tokens de sesión.
 
-# 2. Instalar dependencias
-npm install
+Perfiles y GitHub (/api/v1/profiles | /api/v1/github)
+GET /profiles: Listado con soporte para paginación y filtros.
 
-# 3. Configurar variables de entorno
-cp .env.example .env
+POST /profiles: Upsert del perfil del usuario autenticado.
 
-# 4. Generar el cliente Prisma y sincronizar el schema
-npx prisma generate
-npx prisma db push
+GET /github/:username/repos: Proxy hacia la API de GitHub (mantiene el token de servidor privado).
 
-# 5. Levantar en modo desarrollo
-npm run dev
-```
+Solicitudes (/api/v1/requests)
+Gestión de flujo de contacto entre empresas y egresados (pendiente, aceptada, rechazada).
 
-El servidor corre en `http://localhost:3000`.
+Seguridad
+Sesiones: Implementación de Access Tokens (15 min) y Refresh Tokens (7 días).
 
-### Scripts disponibles
+Validación: Validación estricta de inputs con Zod para prevenir datos malformados.
 
-| Script | Descripción |
-|---|---|
-| `npm run dev` | Desarrollo con hot-reload (nodemon) |
-| `npm run build` | Compila TypeScript → `dist/` y genera Prisma Client |
-| `npm start` | Producción: ejecuta `dist/index.js` |
+Headers: Integración de Helmet para mitigar ataques comunes de seguridad web.
 
----
+CORS: Restringido por variables de entorno según el entorno de ejecución.
 
-## Variables de entorno
+Roadmap
+[ ] Cobertura de tests unitarios y de integración.
 
-Copia `.env.example` a `.env` y configura:
+[ ] Implementación de Redis para caché de peticiones a GitHub.
 
-```env
-DATABASE_URL="postgresql://gowo_admin:password@localhost:5433/gowo_db?schema=public"
-JWT_SECRET="string_largo_y_aleatorio_minimo_32_chars"
-JWT_REFRESH_SECRET="otro_string_largo_y_aleatorio_diferente"
-PORT=3000
-CORS_ORIGIN="http://localhost:3002"
-GITHUB_TOKEN=""
-```
-
-> `JWT_SECRET` y `JWT_REFRESH_SECRET` son obligatorios. El servidor lanza una excepción al iniciar si no están definidos.
-
----
-
-## Endpoints
-
-### Auth — `/api/v1/auth`
-
-| Método | Ruta | Auth | Body | Descripción |
-|---|---|---|---|---|
-| POST | `/register` | No | `{ email, password, role }` | Registra usuario. Role: `egresado` \| `empresa` |
-| POST | `/login` | No | `{ email, password }` | Login. Retorna `token` + `refreshToken` |
-| POST | `/refresh` | No | `{ refresh_token }` | Renueva el access token |
-
-### Perfiles — `/api/v1/profiles`
-
-| Método | Ruta | Auth | Descripción |
-|---|---|---|---|
-| GET | `/` | No | Listar perfiles paginados (`?page=1&limit=10`) |
-| GET | `/:id` | No | Obtener perfil por ID |
-| POST | `/` | Sí (JWT) | Crear o actualizar perfil propio (upsert) |
-
-Body del POST perfiles:
-```json
-{
-  "nombre": "Juan Pérez",
-  "experiencia_meses": 24,
-  "github_username": "juanperez",
-  "skills": ["React", "Node.js", "PostgreSQL"]
-}
-```
-
-### Solicitudes — `/api/v1/requests`
-
-| Método | Ruta | Auth | Descripción |
-|---|---|---|---|
-| POST | `/` | Sí (empresa) | Enviar solicitud de contacto a un egresado |
-| GET | `/` | Sí | Ver mis solicitudes (enviadas si empresa, recibidas si egresado) |
-| PATCH | `/:id` | Sí (egresado) | Aceptar o rechazar una solicitud recibida |
-
-Body del POST requests:
-```json
-{
-  "profileId": "uuid-del-perfil",
-  "descripcion": "Nos interesa tu perfil para un proyecto de desarrollo web."
-}
-```
-
-Body del PATCH requests:
-```json
-{ "estado": "aceptada" }
-```
-Estados posibles: `aceptada` | `rechazada`
-
-### GitHub (API externa) — `/api/v1/github`
-
-| Método | Ruta | Auth | Descripción |
-|---|---|---|---|
-| GET | `/:username/repos` | No | Repositorios públicos recientes del usuario en GitHub |
-
----
-
-## Pruebas de API
-
-### 1. Health check
-```bash
-curl http://localhost:3000/health
-# {"status":"ok","db":"connected"}
-```
-
-### 2. Registrar un egresado
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"egresado@test.com","password":"123456","role":"egresado"}'
-```
-
-### 3. Login y obtener token
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"egresado@test.com","password":"123456"}'
-# Guarda el "token" de la respuesta como TOKEN
-```
-
-### 4. Crear perfil (requiere token)
-```bash
-curl -X POST http://localhost:3000/api/v1/profiles \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"nombre":"Juan Pérez","experiencia_meses":12,"github_username":"octocat","skills":["React","Node.js"]}'
-```
-
-### 5. Listar perfiles (público)
-```bash
-curl http://localhost:3000/api/v1/profiles?page=1&limit=5
-```
-
-### 6. Ver repos de GitHub de un egresado
-```bash
-curl http://localhost:3000/api/v1/github/octocat/repos
-```
-
-### 7. Registrar empresa y enviar solicitud
-```bash
-# Registrar empresa
-curl -X POST http://localhost:3000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"empresa@test.com","password":"123456","role":"empresa"}'
-
-# Login empresa
-curl -X POST http://localhost:3000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"empresa@test.com","password":"123456"}'
-
-# Enviar solicitud (reemplaza TOKEN_EMPRESA y PROFILE_ID)
-curl -X POST http://localhost:3000/api/v1/requests \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN_EMPRESA" \
-  -d '{"profileId":"PROFILE_ID","descripcion":"Nos interesa tu perfil para un proyecto."}'
-```
-
----
-
-## Seguridad
-
-| Mecanismo | Implementación |
-|---|---|
-| Autenticación | JWT Bearer Token (access 15 min + refresh 7 días) |
-| Contraseñas | Hash con bcrypt (salt rounds: 10) |
-| Headers HTTP | `helmet` activo (CSP, X-Frame-Options, HSTS, etc.) |
-| CORS | Restringido al origen configurado en `CORS_ORIGIN` |
-| Validación de inputs | Zod en todos los endpoints (body, params, query) |
-| Secrets | Variables de entorno obligatorias, sin fallbacks inseguros |
-
----
-
-## Decisiones técnicas
-
-- **Prisma sobre SQL puro:** Permite tipado fuerte end-to-end y migraciones controladas sin sacrificar flexibilidad.
-- **Zod sobre express-validator:** Integración nativa con TypeScript, inferencia de tipos automática desde los schemas.
-- **Access + Refresh token:** El access token de corta duración (15 min) minimiza el impacto de tokens robados; el refresh token permite sesiones largas sin re-login.
-- **Upsert en perfiles:** Simplifica el flujo del egresado (un solo endpoint para crear y editar).
-- **Proxy de GitHub API en backend:** El token de GitHub nunca se expone al cliente; el backend actúa como intermediario seguro.
+[ ] Sistema de notificaciones por email.
